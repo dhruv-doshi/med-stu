@@ -4,6 +4,7 @@
   "patient_profile": {"name": "Ramesh", "age": 58, "personality": "anxious but cooperative", "communication_style": "brief answers unless prompted"},
   "presenting_complaint": "Central chest discomfort for two hours.",
   "facts": [
+    {"id": "severity", "text": "It is about 8 out of 10 right now.", "matchers": ["scale", "severity", "how bad", "hurt", "hurting", "pain score", "rate"], "is_red_flag": false},
     {"id": "onset", "text": "It started suddenly about two hours ago while I was walking home.", "matchers": ["start", "onset", "when", "how long", "duration", "began"], "is_red_flag": true},
     {"id": "radiation", "text": "It feels heavy and the pain is going into my left arm.", "matchers": ["radiat", "arm", "spread", "move", "travel"], "is_red_flag": true},
     {"id": "sweating", "text": "Yes, I became sweaty and felt sick with it.", "matchers": ["sweat", "nausea", "vomit", "sick", "diaphoresis"], "is_red_flag": true},

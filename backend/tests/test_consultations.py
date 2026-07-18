@@ -40,6 +40,12 @@ def test_common_history_wording_reveals_safe_fact():
     assert "two hours" in reply and "left arm" in reply
 
 
+def test_pain_scale_question_gets_authored_severity():
+    cid = client.post("/consultations", json={"case_id": "chest_pain_001"}).json()["id"]
+    reply = client.post(f"/consultations/{cid}/turns", json={"text": "How much is it hurting on a scale of 1 to 10?"}).json()["reply"]
+    assert "8 out of 10" in reply
+
+
 def test_unknown_investigation_is_rejected():
     cid = client.post("/consultations", json={"case_id": "chest_pain_001"}).json()["id"]
     assert client.post(f"/consultations/{cid}/investigations", json={"investigation_id": "mri"}).status_code == 404

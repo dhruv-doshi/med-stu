@@ -46,6 +46,14 @@ def test_pain_scale_question_gets_authored_severity():
     assert "8 out of 10" in reply
 
 
+def test_follow_up_history_questions_use_new_authored_facts():
+    cid = client.post("/consultations", json={"case_id": "chest_pain_001"}).json()["id"]
+    constant = client.post(f"/consultations/{cid}/turns", json={"text": "Has the pain been constant?"}).json()["reply"]
+    previous = client.post(f"/consultations/{cid}/turns", json={"text": "Has this happened to you ever before?"}).json()["reply"]
+    assert "constant" in constant
+    assert "not had pain like this before" in previous
+
+
 def test_unknown_investigation_is_rejected():
     cid = client.post("/consultations", json={"case_id": "chest_pain_001"}).json()["id"]
     assert client.post(f"/consultations/{cid}/investigations", json={"investigation_id": "mri"}).status_code == 404

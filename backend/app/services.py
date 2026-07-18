@@ -1,4 +1,5 @@
 import re
+import json
 
 import httpx
 from fastapi import HTTPException
@@ -32,7 +33,7 @@ def _normalise(value: str) -> str:
     return re.sub(r"[^a-z0-9 ]", " ", value.lower())
 
 
-def authorised_facts(case: ClinicalCase, learner_text: str, revealed: set[str]) -> list:
+def lexical_facts(case: ClinicalCase, learner_text: str, revealed: set[str]) -> list:
     question = _normalise(learner_text)
     matches = [
         fact for fact in case.facts
@@ -41,14 +42,56 @@ def authorised_facts(case: ClinicalCase, learner_text: str, revealed: set[str]) 
     return matches[:2]
 
 
+async def select_facts_with_openrouter(case: ClinicalCase, learner_text: str, session: ConsultationState) -> list:
+    """Choose fact IDs only; clinical truth stays in the case file, not the model."""
+    if not settings.openrouter_api_key:
+        return []
+    candidate_facts = [
+        {"id": fact.id, "category": fact.category, "text": fact.text}
+        for fact in case.facts if fact.id not in session.revealed_fact_ids
+    ]
+    if not candidate_facts:
+        return []
+    recent_transcript = [turn.model_dump(mode="json") for turn in session.transcript[-8:]]
+    payload = {
+        "model": settings.openrouter_model,
+        "messages": [
+            {"role": "system", "content": (
+                "You are a clinical-simulation fact selector. Select at most two fact IDs that directly answer "
+                "the learner's current question, considering the recent transcript. Never infer, diagnose, or reveal "
+                "facts that are not directly requested. Return JSON only: {\"fact_ids\":[\"id\"]}. "
+                "Return an empty array when no candidate fact answers the question."
+            )},
+            {"role": "user", "content": json.dumps({"question": learner_text, "recent_transcript": recent_transcript, "candidate_facts": candidate_facts})},
+        ],
+        "response_format": {"type": "json_object"},
+        "temperature": 0,
+        "max_tokens": 80,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=12) as client:
+            response = await client.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={"Authorization": f"Bearer {settings.openrouter_api_key}", "Content-Type": "application/json", "X-Title": "AI Virtual Patient Simulator"},
+                json=payload,
+            )
+            response.raise_for_status()
+            selected_ids = json.loads(response.json()["choices"][0]["message"]["content"]).get("fact_ids", [])
+    except (httpx.HTTPError, KeyError, IndexError, TypeError, json.JSONDecodeError):
+        return []
+    allowed_ids = {fact["id"] for fact in candidate_facts}
+    return [fact for fact in case.facts if fact.id in selected_ids and fact.id in allowed_ids][:2]
+
+
 def safe_conversational_reply(case: ClinicalCase, learner_text: str, is_first_turn: bool) -> str | None:
     question = _normalise(learner_text)
     if "name" in question:
         return f"My name is {case.patient_profile.name}."
     if "old" in question or "age" in question:
         return f"I am {case.patient_profile.age} years old."
-    opening_phrases = ("what brings", "what happened", "what problem", "what is wrong", "how can i help", "complaint", "tell me about", "hello", "hi")
-    if is_first_turn or any(phrase in question for phrase in opening_phrases):
+    opening_phrases = ("what brings", "what happened", "what problem", "what is wrong", "how can i help", "complaint", "tell me about", "hello")
+    words = set(question.split())
+    if is_first_turn or any(phrase in question for phrase in opening_phrases) or "hi" in words:
         return f"I came because of {case.presenting_complaint.lower()}"
     return None
 
@@ -67,7 +110,7 @@ async def patient_reply(case: ClinicalCase, learner_text: str, facts: list, is_f
         "You are a fictional patient in a medical education simulation. "
         "Reply in first person with one short, natural spoken response. "
         "Use only the supplied allowed facts. Never name a diagnosis, recommend treatment, "
-        "or add facts. If allowed facts are insufficient, ask for clarification."
+        "or add facts. Answer the learner's question directly and naturally in one or two sentences."
     )
     payload = {
         "model": settings.openrouter_model,
@@ -101,7 +144,9 @@ async def add_turn(session: ConsultationState, learner_text: str) -> str:
     if session.status != "active":
         raise HTTPException(status_code=422, detail="Consultation is already completed")
     case = get_case(session.case_id)
-    facts = authorised_facts(case, learner_text, session.revealed_fact_ids)
+    facts = lexical_facts(case, learner_text, session.revealed_fact_ids)
+    if not facts:
+        facts = await select_facts_with_openrouter(case, learner_text, session)
     reply = await patient_reply(case, learner_text, facts, is_first_turn=not session.transcript)
     session.revealed_fact_ids.update(fact.id for fact in facts)
     session.transcript.extend([TranscriptTurn(role="learner", text=learner_text), TranscriptTurn(role="patient", text=reply)])

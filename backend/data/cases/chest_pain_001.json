@@ -4,12 +4,22 @@
   "patient_profile": {"name": "Ramesh", "age": 58, "personality": "anxious but cooperative", "communication_style": "brief answers unless prompted"},
   "presenting_complaint": "Central chest discomfort for two hours.",
   "facts": [
-    {"id": "severity", "text": "It is about 8 out of 10 right now.", "matchers": ["scale", "severity", "how bad", "hurt", "hurting", "pain score", "rate"], "is_red_flag": false},
-    {"id": "onset", "text": "It started suddenly about two hours ago while I was walking home.", "matchers": ["start", "onset", "when", "how long", "duration", "began"], "is_red_flag": true},
-    {"id": "radiation", "text": "It feels heavy and the pain is going into my left arm.", "matchers": ["radiat", "arm", "spread", "move", "travel"], "is_red_flag": true},
-    {"id": "sweating", "text": "Yes, I became sweaty and felt sick with it.", "matchers": ["sweat", "nausea", "vomit", "sick", "diaphoresis"], "is_red_flag": true},
-    {"id": "smoking", "text": "I have smoked about a pack a day for many years.", "matchers": ["smok", "tobacco", "cigarette"], "is_red_flag": true},
-    {"id": "breathlessness", "text": "I am a little short of breath as well.", "matchers": ["breath", "shortness", "dyspnea", "breathing"], "is_red_flag": true}
+    {"id": "severity", "category": "symptom", "text": "It is about 8 out of 10 right now.", "matchers": ["scale", "severity", "how bad", "hurt", "hurting", "pain score", "rate"], "is_red_flag": false},
+    {"id": "onset", "category": "symptom", "text": "It started suddenly about two hours ago while I was walking home.", "matchers": ["start", "onset", "when", "how long", "duration", "began"], "is_red_flag": true},
+    {"id": "constant", "category": "symptom", "text": "It has been constant since it began and has not fully gone away.", "matchers": ["constant", "continuous", "come and go", "intermittent", "all the time"], "is_red_flag": true},
+    {"id": "previous_episode", "category": "history", "text": "No, I have not had pain like this before.", "matchers": ["before", "previous", "ever", "happened", "episode", "similar"], "is_red_flag": true},
+    {"id": "trigger", "category": "symptom", "text": "It began while I was walking and it has not improved with rest.", "matchers": ["trigger", "walking", "exercise", "exertion", "rest", "better", "worse"], "is_red_flag": true},
+    {"id": "radiation", "category": "symptom", "text": "It feels heavy and the pain is going into my left arm.", "matchers": ["radiat", "arm", "spread", "move", "travel"], "is_red_flag": true},
+    {"id": "sweating", "category": "associated_symptoms", "text": "Yes, I became sweaty and felt sick with it.", "matchers": ["sweat", "nausea", "vomit", "sick", "diaphoresis"], "is_red_flag": true},
+    {"id": "breathlessness", "category": "associated_symptoms", "text": "I am a little short of breath as well.", "matchers": ["breath", "shortness", "dyspnea", "breathing"], "is_red_flag": true},
+    {"id": "palpitations", "category": "associated_symptoms", "text": "No, I have not noticed my heart racing or skipping.", "matchers": ["palpitation", "heart racing", "heartbeat", "skip"], "is_red_flag": false},
+    {"id": "syncope", "category": "associated_symptoms", "text": "I have not fainted or blacked out.", "matchers": ["faint", "blackout", "collapse", "dizzy"], "is_red_flag": false},
+    {"id": "smoking", "category": "social_history", "text": "I have smoked about a pack a day for many years.", "matchers": ["smok", "tobacco", "cigarette"], "is_red_flag": true},
+    {"id": "diabetes", "category": "medical_history", "text": "I have type 2 diabetes.", "matchers": ["diabetes", "sugar"], "is_red_flag": true},
+    {"id": "hypertension", "category": "medical_history", "text": "I have high blood pressure as well.", "matchers": ["blood pressure", "hypertension", "bp"], "is_red_flag": true},
+    {"id": "medications", "category": "medication_history", "text": "I take metformin and amlodipine, though I sometimes miss doses.", "matchers": ["medicine", "medication", "tablet", "drug", "metformin", "amlodipine"], "is_red_flag": false},
+    {"id": "allergies", "category": "allergy", "text": "I do not have any known drug allergies.", "matchers": ["allergy", "allergic"], "is_red_flag": false},
+    {"id": "family_history", "category": "family_history", "text": "My father had a heart attack in his early sixties.", "matchers": ["family", "father", "mother", "heart attack"], "is_red_flag": true}
   ],
   "investigations": [
     {"id": "ecg", "name": "ECG", "summary": "ST-segment elevation in leads II, III and aVF.", "interpretation": "Inferior wall myocardial infarction.", "recommended": true},

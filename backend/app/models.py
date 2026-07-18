@@ -16,6 +16,7 @@ class CaseFact(BaseModel):
     id: str
     text: str
     matchers: list[str] = Field(default_factory=list)
+    category: str = "history"
     is_red_flag: bool = False
 
 

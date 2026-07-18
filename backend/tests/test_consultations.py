@@ -28,6 +28,18 @@ def test_chest_pain_golden_path():
     assert report.json()["scores"]["clinical_reasoning"] == 100
 
 
+def test_common_opening_question_gets_presenting_complaint():
+    cid = client.post("/consultations", json={"case_id": "chest_pain_001"}).json()["id"]
+    reply = client.post(f"/consultations/{cid}/turns", json={"text": "Hello, what brings you in today?"}).json()["reply"]
+    assert "chest discomfort" in reply
+
+
+def test_common_history_wording_reveals_safe_fact():
+    cid = client.post("/consultations", json={"case_id": "chest_pain_001"}).json()["id"]
+    reply = client.post(f"/consultations/{cid}/turns", json={"text": "How long have you had this and does it travel anywhere?"}).json()["reply"]
+    assert "two hours" in reply and "left arm" in reply
+
+
 def test_unknown_investigation_is_rejected():
     cid = client.post("/consultations", json={"case_id": "chest_pain_001"}).json()["id"]
     assert client.post(f"/consultations/{cid}/investigations", json={"investigation_id": "mri"}).status_code == 404

@@ -4,11 +4,11 @@
   "patient_profile": {"name": "Ramesh", "age": 58, "personality": "anxious but cooperative", "communication_style": "brief answers unless prompted"},
   "presenting_complaint": "Central chest discomfort for two hours.",
   "facts": [
-    {"id": "onset", "text": "It started suddenly about two hours ago while I was walking home.", "matchers": ["start", "onset", "when"], "is_red_flag": true},
-    {"id": "radiation", "text": "It feels heavy and the pain is going into my left arm.", "matchers": ["radiat", "arm", "spread"], "is_red_flag": true},
-    {"id": "sweating", "text": "Yes, I became sweaty and felt sick with it.", "matchers": ["sweat", "nausea", "vomit"], "is_red_flag": true},
-    {"id": "smoking", "text": "I have smoked about a pack a day for many years.", "matchers": ["smok", "tobacco"], "is_red_flag": true},
-    {"id": "breathlessness", "text": "I am a little short of breath as well.", "matchers": ["breath", "shortness"], "is_red_flag": true}
+    {"id": "onset", "text": "It started suddenly about two hours ago while I was walking home.", "matchers": ["start", "onset", "when", "how long", "duration", "began"], "is_red_flag": true},
+    {"id": "radiation", "text": "It feels heavy and the pain is going into my left arm.", "matchers": ["radiat", "arm", "spread", "move", "travel"], "is_red_flag": true},
+    {"id": "sweating", "text": "Yes, I became sweaty and felt sick with it.", "matchers": ["sweat", "nausea", "vomit", "sick", "diaphoresis"], "is_red_flag": true},
+    {"id": "smoking", "text": "I have smoked about a pack a day for many years.", "matchers": ["smok", "tobacco", "cigarette"], "is_red_flag": true},
+    {"id": "breathlessness", "text": "I am a little short of breath as well.", "matchers": ["breath", "shortness", "dyspnea", "breathing"], "is_red_flag": true}
   ],
   "investigations": [
     {"id": "ecg", "name": "ECG", "summary": "ST-segment elevation in leads II, III and aVF.", "interpretation": "Inferior wall myocardial infarction.", "recommended": true},

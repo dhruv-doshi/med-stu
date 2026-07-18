@@ -41,8 +41,23 @@ def authorised_facts(case: ClinicalCase, learner_text: str, revealed: set[str]) 
     return matches[:2]
 
 
-async def patient_reply(case: ClinicalCase, learner_text: str, facts: list) -> str:
+def safe_conversational_reply(case: ClinicalCase, learner_text: str, is_first_turn: bool) -> str | None:
+    question = _normalise(learner_text)
+    if "name" in question:
+        return f"My name is {case.patient_profile.name}."
+    if "old" in question or "age" in question:
+        return f"I am {case.patient_profile.age} years old."
+    opening_phrases = ("what brings", "what happened", "what problem", "what is wrong", "how can i help", "complaint", "tell me about", "hello", "hi")
+    if is_first_turn or any(phrase in question for phrase in opening_phrases):
+        return f"I came because of {case.presenting_complaint.lower()}"
+    return None
+
+
+async def patient_reply(case: ClinicalCase, learner_text: str, facts: list, is_first_turn: bool) -> str:
     if not facts:
+        safe_reply = safe_conversational_reply(case, learner_text, is_first_turn)
+        if safe_reply:
+            return safe_reply
         return "I am not sure what you mean. Could you ask me that in another way?"
     fallback = " ".join(fact.text for fact in facts)
     if not settings.openrouter_api_key:
@@ -87,7 +102,7 @@ async def add_turn(session: ConsultationState, learner_text: str) -> str:
         raise HTTPException(status_code=422, detail="Consultation is already completed")
     case = get_case(session.case_id)
     facts = authorised_facts(case, learner_text, session.revealed_fact_ids)
-    reply = await patient_reply(case, learner_text, facts)
+    reply = await patient_reply(case, learner_text, facts, is_first_turn=not session.transcript)
     session.revealed_fact_ids.update(fact.id for fact in facts)
     session.transcript.extend([TranscriptTurn(role="learner", text=learner_text), TranscriptTurn(role="patient", text=reply)])
     return reply

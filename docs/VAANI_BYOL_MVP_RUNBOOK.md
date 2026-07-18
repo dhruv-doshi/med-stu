@@ -91,10 +91,11 @@ domain. Normal browser CORS is not needed in this layout.
 
 ### Railway deployment
 
-1. Push the current repository to GitHub.
-2. In Railway, create **New Project → Deploy from GitHub Repo** and select this repository.
-3. Railway detects the root `Dockerfile`; leave the root directory as the repository root.
-4. In the service's **Variables** panel, add these values:
+1. The deployment source is `https://github.com/dhruv-doshi/med-stu.git`, branch `main`.
+2. In Railway, create **New Project → Deploy from GitHub Repo** and select `dhruv-doshi/med-stu`.
+3. Choose the `main` branch. Railway detects the root `Dockerfile`; leave the root directory as the repository root. Do not set a custom build command or start command.
+4. Wait for the first build to finish, then go to **Settings → Networking** and generate a public domain. Copy its complete `https://...` address.
+5. In the service's **Variables** panel, add these values. Replace every placeholder before pressing Deploy:
 
 ```dotenv
 OPENROUTER_API_KEY=...
@@ -102,15 +103,13 @@ OPENROUTER_MODEL=openai/gpt-4o-mini
 VAANI_API_KEY=...
 VAANI_AGENT_ID=<Vaani agent UUID>
 VAANI_API_BASE_URL=https://api.vaanivoice.ai
-PUBLIC_BASE_URL=https://<railway-public-domain>
-CORS_ORIGINS=https://<railway-public-domain>
+PUBLIC_BASE_URL=https://<your-actual-railway-domain>
+CORS_ORIGINS=https://<your-actual-railway-domain>
 ```
 
-5. In **Settings → Networking**, generate a public domain. Copy it, then set
-   `PUBLIC_BASE_URL` to that exact `https://...` value and redeploy once.
-6. Open `https://<railway-public-domain>/health`. It must return
+6. Redeploy after saving variables. Open `https://<your-actual-railway-domain>/health`. It must return
    `{"status":"ok"}`.
-7. Open the same domain without `/health`. The virtual-patient browser UI must load.
+7. Open the same domain without `/health`. The virtual-patient browser UI must load. This is the only browser URL you need; do not deploy the `frontend/` directory separately.
 
 ### Render deployment
 
@@ -128,6 +127,24 @@ BYOL URL:  wss://<public-domain>/vaani/byol
 Webhook:   https://<public-domain>/vaani/webhook
 Fallback:  No fallback
 ```
+
+In Vaani, complete the dashboard setup in this order:
+
+1. Create one agent named `virtual-patient-mvp`, select an `en-IN` conversational voice, and copy its UUID into Railway as `VAANI_AGENT_ID`.
+2. In **Brain → Reasoning Language Model**, select **Bring Your Own LLM** and paste the `wss://.../vaani/byol` URL above. Click **Test Connection**; it must succeed before making a call.
+3. Set the platform fallback to **No fallback**, then save the agent.
+4. Provision or select a Vaani test number, assign it to the agent, and ensure it is permitted to call the learner phone number.
+5. In Vaani webhooks, add the `https://.../vaani/webhook` URL above and subscribe to `call_started`, `user_picked_up_at`, `call_ended`, and `call_postprocessing`.
+6. Return to the deployed browser app, choose a case, enter a reachable E.164 phone number such as `+9198...`, and select **Start Vaani call**.
+
+### Human-only deployment checklist
+
+- [ ] Railway GitHub integration is authorized and the `main` branch is selected.
+- [ ] Railway public domain is generated and copied exactly into `PUBLIC_BASE_URL`.
+- [ ] Vaani/OpenRouter credentials are entered in Railway Variables; none are committed to Git.
+- [ ] Vaani BYOL Test Connection succeeds with the Railway WSS URL.
+- [ ] A Vaani phone number is assigned and can call the chosen test phone.
+- [ ] The webhook events are subscribed and the chest-pain call completes once.
 
 Do not set `NEXT_PUBLIC_API_BASE_URL` for this single-service Docker deployment.
 The frontend is built to call its own origin, so it automatically uses the same

@@ -190,3 +190,32 @@ def evaluate(session: ConsultationState) -> EvaluationReport:
     overall = round(sum(scores.values()) / len(scores))
     feedback = "Review the missed items and use the transcript evidence to guide the next consultation."
     return EvaluationReport(overall_score=overall, scores=scores, missed_items=missed, unnecessary_actions=unnecessary, strengths=strengths, evidence=evidence, feedback=feedback)
+
+
+async def add_evaluator_feedback(session: ConsultationState, report: EvaluationReport) -> EvaluationReport:
+    """Evaluator Agent: qualitative coaching may enrich, never overwrite deterministic scores."""
+    if not settings.openrouter_api_key:
+        return report
+    case = get_case(session.case_id)
+    payload = {
+        "model": settings.openrouter_model,
+        "messages": [
+            {"role": "system", "content": (
+                "You are an evaluator for a fictional medical-training simulation. Give concise, supportive feedback "
+                "using only the supplied deterministic report and learner transcript. Do not give real-patient medical "
+                "advice, change scores, or claim evidence not in the transcript. Return JSON only: {\"feedback\":string}."
+            )},
+            {"role": "user", "content": json.dumps({"case_title": case.title, "report": report.model_dump(), "transcript": [turn.model_dump(mode="json") for turn in session.transcript]})},
+        ],
+        "response_format": {"type": "json_object"}, "temperature": 0.2, "max_tokens": 180,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=12) as client:
+            response = await client.post("https://openrouter.ai/api/v1/chat/completions", headers={"Authorization": f"Bearer {settings.openrouter_api_key}", "Content-Type": "application/json", "X-Title": "AI Virtual Patient Simulator"}, json=payload)
+            response.raise_for_status()
+            feedback = json.loads(response.json()["choices"][0]["message"]["content"]).get("feedback")
+            if isinstance(feedback, str) and feedback.strip():
+                report.feedback = feedback.strip()
+    except (httpx.HTTPError, KeyError, IndexError, TypeError, json.JSONDecodeError):
+        pass
+    return report

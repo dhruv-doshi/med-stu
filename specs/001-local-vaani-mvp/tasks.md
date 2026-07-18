@@ -11,9 +11,9 @@
 
 ## Stage 2 — Evaluation and case coverage
 
-- [ ] Add structured qualitative feedback adapter constrained by deterministic results and transcript evidence.
-- [ ] Build evaluation view with category scores, missed items, strengths, and evidence.
-- [ ] Author diabetes, migraine, URI, and abdominal-pain cases using the same schema.
+- [X] Add structured qualitative feedback adapter constrained by deterministic results and transcript evidence.
+- [X] Build evaluation view with category scores, missed items, strengths, and evidence.
+- [X] Author diabetes, migraine, URI, and abdominal-pain cases using the same schema.
 - [ ] Add smoke fixtures for every case and golden chest-pain evaluation regression.
 
 ## Stage 3 — Vaani voice

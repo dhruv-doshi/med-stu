@@ -3,14 +3,15 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .case_store import get_case, load_cases, public_case
 from .models import CompleteRequest, CreateConsultationRequest, DifferentialsRequest, InvestigationRequest, TurnRequest
-from .services import add_turn, evaluate, order_investigation, store
+from .services import add_evaluator_feedback, add_turn, evaluate, order_investigation, store
 
 app = FastAPI(title="AI Virtual Patient Simulator", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"], allow_methods=["*"], allow_headers=["*"])
 
 
 def public_session(session):
-    return {"id": session.id, "case_id": session.case_id, "status": session.status, "transcript": [turn.model_dump(mode="json") for turn in session.transcript], "ordered_investigation_ids": session.ordered_investigation_ids, "differentials": session.differentials}
+    case = get_case(session.case_id)
+    return {"id": session.id, "case_id": session.case_id, "status": session.status, "transcript": [turn.model_dump(mode="json") for turn in session.transcript], "ordered_investigation_ids": session.ordered_investigation_ids, "differentials": session.differentials, "investigations": [{"id": item.id, "name": item.name} for item in case.investigations]}
 
 
 @app.get("/health")
@@ -51,15 +52,15 @@ def submit_differentials(consultation_id: str, body: DifferentialsRequest):
 
 
 @app.post("/consultations/{consultation_id}/complete")
-def complete_consultation(consultation_id: str, body: CompleteRequest):
+async def complete_consultation(consultation_id: str, body: CompleteRequest):
     session = store.get(consultation_id)
     if session.status != "active": raise HTTPException(status_code=422, detail="Consultation is already completed")
     session.final_diagnosis, session.management_plan, session.status = body.final_diagnosis, body.management_plan, "completed"
-    return evaluate(session)
+    return await add_evaluator_feedback(session, evaluate(session))
 
 
 @app.get("/consultations/{consultation_id}/evaluation")
-def get_evaluation(consultation_id: str):
+async def get_evaluation(consultation_id: str):
     session = store.get(consultation_id)
     if session.status != "completed": raise HTTPException(status_code=422, detail="Complete the consultation first")
-    return evaluate(session)
+    return await add_evaluator_feedback(session, evaluate(session))

@@ -2,12 +2,12 @@
 
 ## Stage 1 — Runnable text slice
 
-- [ ] Create Next.js and FastAPI application skeletons with local environment examples.
-- [ ] Define Pydantic case/state/evaluation models and JSON case loader.
-- [ ] Author chest-pain golden case with facts, reveal rules, ECG/troponin, and rubric.
-- [ ] Implement consultation creation, turn handling, investigation ordering, submission, and completion APIs.
-- [ ] Implement deterministic reveal and scoring tests before LLM response wiring.
-- [ ] Build case selection and text consultation UI.
+- [X] Create Next.js and FastAPI application skeletons with local environment examples.
+- [X] Define Pydantic case/state/evaluation models and JSON case loader.
+- [X] Author chest-pain golden case with facts, reveal rules, ECG/troponin, and rubric.
+- [X] Implement consultation creation, turn handling, investigation ordering, submission, and completion APIs.
+- [X] Implement deterministic reveal and scoring tests before LLM response wiring.
+- [X] Build case selection and text consultation UI.
 
 ## Stage 2 — Evaluation and case coverage
 

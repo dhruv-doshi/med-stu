@@ -94,6 +94,12 @@ does not use telephony or require a purchased phone number.
 5. Grant microphone permission. FastAPI creates `medium: "webrtc"`, then the browser joins the Vaani-provided LiveKit room with its short-lived token.
 6. Conduct the consultation and select **End Vaani browser call**. Use **Complete consultation** for evaluation because no webhook is configured.
 
+If the transcript updates but the patient is silent, select **Enable patient
+audio** in the Vaani browser-call card. This button performs LiveKit's audio
+unlock directly from a browser click, as required by Chrome/Safari autoplay
+policies. If it remains blocked, allow Sound for `localhost` in browser Site
+settings and select the button again.
+
 The Vaani API key remains server-side. Only the short-lived LiveKit token and
 connection URL are returned to the browser.
 

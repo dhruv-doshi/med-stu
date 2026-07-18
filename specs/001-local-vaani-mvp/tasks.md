@@ -31,5 +31,6 @@
 - [X] Package a single-service Docker deployment that serves the static frontend from FastAPI and documents Railway/Render configuration.
 - [X] Add and verify a free browser-live STT/TTS demo mode with interrupt cancellation and case-safe spoken investigation orders.
 - [X] Add Vaani WebRTC session dispatch, LiveKit browser media, BYOL call mapping, live status, and no-phone runbook/test coverage.
+- [X] Detect blocked LiveKit autoplay and provide a user-gesture audio unlock control for patient speech.
 - [ ] Run the scripted chest-pain demo in a clean browser profile.
 - [ ] Record known limitations and move production requirements into the next feature specification.

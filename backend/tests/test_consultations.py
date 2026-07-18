@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.config import settings
 from app.services import store
 
 client = TestClient(app)
@@ -101,6 +102,40 @@ def test_browser_live_turn_orders_case_safe_investigation():
     response = client.post(f"/consultations/{consultation['id']}/turns", json={"text": "Please order an ECG", "input_mode": "browser_live"})
     assert response.status_code == 200
     assert "ecg" in response.json()["consultation"]["ordered_investigation_ids"]
+
+
+def test_vaani_webrtc_session_returns_short_lived_browser_credentials(monkeypatch):
+    import importlib
+    main_module = importlib.import_module("app.main")
+    captured = {}
+
+    class FakeResponse:
+        status_code = 200
+        text = ""
+
+        @staticmethod
+        def json():
+            return {"token": "short-lived-token", "room_name": "room-browser-1", "connection_url": "wss://rtc.vaanivoice.ai", "live_captions_url": "wss://api.vaanivoice.ai/captions/room-browser-1"}
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): pass
+        async def post(self, url, headers, json):
+            captured.update({"url": url, "headers": headers, "json": json})
+            return FakeResponse()
+
+    monkeypatch.setattr(settings, "vaani_api_key", "vaani-test-key")
+    monkeypatch.setattr(settings, "vaani_agent_id", "agent-test-id")
+    monkeypatch.setattr(main_module.httpx, "AsyncClient", FakeClient)
+    consultation = client.post("/consultations", json={"case_id": "chest_pain_001"}).json()
+    response = client.post(f"/consultations/{consultation['id']}/vaani/webrtc")
+    assert response.status_code == 200
+    assert response.json()["token"] == "short-lived-token"
+    assert captured["json"]["medium"] == "webrtc"
+    assert "contact_number" not in captured["json"]
+    assert captured["headers"]["X-Agent-Id"] == consultation["id"]
+    assert store.by_call("room-browser-1").id == consultation["id"]
 
 
 def test_webhook_postprocessing_is_idempotent():

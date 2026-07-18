@@ -82,6 +82,21 @@ ngrok http 8000
 
 Copy the generated `https://...` address into `PUBLIC_BASE_URL`; convert it to `wss://...` for the BYOL setting. Restart FastAPI after changing `.env`.
 
+### One local Vaani WebRTC call (no phone number)
+
+This is the shortest supported Vaani demo path. It consumes Vaani credits but
+does not use telephony or require a purchased phone number.
+
+1. Put `VAANI_API_KEY`, `VAANI_AGENT_ID`, and `OPENROUTER_API_KEY` in `.env`.
+2. Start the backend and frontend with the two scripts above, then keep the tunnel running.
+3. Configure the Vaani agent's BYOL URL as `wss://<tunnel-domain>/vaani/byol` and set fallback to **No fallback**. A webhook is not required for this one-call test.
+4. Open `http://localhost:3000`, select a case, and select **Start Vaani browser call**.
+5. Grant microphone permission. FastAPI creates `medium: "webrtc"`, then the browser joins the Vaani-provided LiveKit room with its short-lived token.
+6. Conduct the consultation and select **End Vaani browser call**. Use **Complete consultation** for evaluation because no webhook is configured.
+
+The Vaani API key remains server-side. Only the short-lived LiveKit token and
+connection URL are returned to the browser.
+
 ### Free browser-live demo (no phone number, telephony, Vaani setup, or tunnel)
 
 For the fastest zero-cost demonstration, keep only the backend and frontend

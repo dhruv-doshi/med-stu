@@ -49,6 +49,12 @@ A learner can conduct a microphone-and-speaker consultation directly in the brow
 
 **Independent Test**: Start a chest-pain consultation in Chrome, enable Browser live demo, ask a question aloud, interrupt the browser-spoken reply, verbally order ECG, and observe the transcript and predefined report update.
 
+### User Story 7 — Run a Vaani WebRTC browser call (Priority: P1)
+
+A learner uses Vaani STT, TTS, turn-taking, and credits in the web browser without buying or dialing a phone number.
+
+**Independent Test**: Create a Vaani session with `medium: "webrtc"`, join the returned LiveKit room from the browser, interrupt the patient, and confirm the selected consultation receives BYOL turns and reports.
+
 ## Edge Cases
 
 - Vaani BYOL WebSocket fails: use no platform-LLM fallback, mark the call degraded, and preserve browser text mode for recovery.
@@ -76,6 +82,8 @@ A learner can conduct a microphone-and-speaker consultation directly in the brow
 - **FR-013**: The system MUST prevent active consultations from exposing the hidden diagnosis or answer rubric to the browser.
 - **FR-014**: The system MUST offer a browser-live demo using browser speech-recognition and speech-synthesis APIs without exposing provider secrets or requiring a phone number.
 - **FR-015**: Browser-live final utterances MUST use the same constrained patient, action-validation, and live-event path as voice-provider turns.
+- **FR-016**: The backend MUST create Vaani `medium: "webrtc"` sessions and return only short-lived LiveKit credentials to the browser; it MUST never expose `VAANI_API_KEY`.
+- **FR-017**: The browser MUST connect its microphone and remote audio to the Vaani-provided `connection_url` using the returned token and disconnect cleanly.
 
 ## Success Criteria
 
@@ -90,5 +98,6 @@ A learner can conduct a microphone-and-speaker consultation directly in the brow
 
 - Vaani Voice (`docs.vaanivoice.ai`) is the default voice target, using a phone-call agent with BYOL enabled.
 - Browser live mode is a free local-demo fallback, not a Vaani/WebRTC implementation; browser support and interruption quality depend on the browser and use of headphones.
+- Vaani WebRTC is the preferred no-phone demo and consumes Vaani credits while retaining Vaani-native STT/TTS and interruption handling.
 - A structured-output LLM key will be supplied in the local environment; no model provider is hard-coded into clinical logic.
 - The local demo exposes the BYOL WebSocket through a temporary HTTPS/WSS tunnel; production deployment is deferred.

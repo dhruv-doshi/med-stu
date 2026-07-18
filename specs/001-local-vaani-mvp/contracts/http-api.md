@@ -12,6 +12,7 @@
 | `POST` | `/consultations/{id}/complete` | Submit `{ final_diagnosis, management_plan }`, mark completed, and return the report. |
 | `GET` | `/consultations/{id}/evaluation` | Return evaluation only after completion. |
 | `POST` | `/voice/sessions` | Create a Vaani or mock browser voice session without exposing provider secrets. |
+| `POST` | `/consultations/{id}/vaani/webrtc` | Create a Vaani WebRTC session, map its room to the consultation, and return only short-lived LiveKit browser credentials. |
 
 ## Error rules
 

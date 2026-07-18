@@ -4,7 +4,7 @@
 
 ## Summary
 
-Deliver a phone-call clinical simulation with Vaani as the native real-time voice runtime and FastAPI as the Bring Your Own LLM (BYOL) server. Vaani owns STT, TTS, call media, and model-native turn-taking; FastAPI owns case state, permitted facts, investigations, and evaluation. The browser is the live dashboard, not the call media endpoint.
+Deliver phone and in-browser WebRTC clinical simulations with Vaani as the native real-time voice runtime and FastAPI as the Bring Your Own LLM (BYOL) server. Vaani owns STT, TTS, call media, and model-native turn-taking; FastAPI owns case state, permitted facts, investigations, and evaluation. In the preferred no-phone flow, the browser is both the LiveKit media participant and the live dashboard.
 
 ## Architecture
 
@@ -22,6 +22,8 @@ Vaani phone agent ───────────────────┘
                                 Vaani lifecycle webhooks
 
 Browser-live fallback ── browser STT/TTS ── same FastAPI turn/action API
+
+Browser Vaani call ── LiveKit WebRTC token ── Vaani STT/TTS/turn-taking
 ```
 
 ## Technical decisions
@@ -34,6 +36,7 @@ Browser-live fallback ── browser STT/TTS ── same FastAPI turn/action API
 - **Call end**: Vaani webhook identifies `call_ended` then `call_postprocessing`; FastAPI stores final transcript, runs deterministic scoring plus Evaluator Agent feedback, and emits `evaluation_ready`.
 - **Barge-in**: Vaani is the audio/turn-taking authority. The backend never starts a second response after a newer Vaani `response_required` turn; it cancels any outstanding generation task for that call before handling the new response ID.
 - **Free browser demo**: Chrome-compatible Web Speech APIs provide continuous local microphone capture and browser TTS. A recognised learner utterance cancels active browser TTS and uses `input_mode: browser_live`, which reuses the safe action/extraction path. This is explicitly a local fallback rather than model-native audio handling.
+- **Vaani WebRTC**: FastAPI calls `/api/trigger-call/` with `medium: "webrtc"` and `X-Agent-Id` set to the consultation ID. It maps the returned `room_name`, returns the short-lived token/connection URL, and the browser joins with the LiveKit client. The long-lived API key never reaches the browser.
 
 ## Security and failure policy
 

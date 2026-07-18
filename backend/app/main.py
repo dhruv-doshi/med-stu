@@ -78,24 +78,50 @@ async def dispatch_vaani_call(consultation_id: str, body: dict):
     return {"consultation_id": session.id, "call_id": call_id, "status": "dispatching"}
 
 
+@app.post("/consultations/{consultation_id}/vaani/webrtc")
+async def create_vaani_webrtc_session(consultation_id: str):
+    """Create a browser media room without exposing the long-lived Vaani key."""
+    session = store.get(consultation_id)
+    if not settings.vaani_api_key or not settings.vaani_agent_id:
+        raise HTTPException(status_code=503, detail="VAANI_API_KEY and VAANI_AGENT_ID are required")
+    payload = {
+        "agent_id": settings.vaani_agent_id,
+        "medium": "webrtc",
+        "metadata": {"consultation_id": session.id, "case_id": session.case_id},
+        "primary_language": "en",
+        "secondary_language": "en",
+        "welcome_message": "Hello, doctor.",
+        "welcome_interruptible": True,
+        "bg_noise_enabled": False,
+        "voice_speed": 1.0,
+    }
+    headers = {"X-API-Key": settings.vaani_api_key, "X-Agent-Id": session.id, "Content-Type": "application/json"}
+    async with httpx.AsyncClient(timeout=30) as client:
+        response = await client.post(f"{settings.vaani_api_base_url.rstrip('/')}/api/trigger-call/", headers=headers, json=payload)
+    if response.status_code >= 400:
+        raise HTTPException(status_code=502, detail=f"Vaani WebRTC session failed: {response.text[:300]}")
+    result = response.json()
+    required = ("token", "room_name", "connection_url")
+    if any(not result.get(field) for field in required):
+        raise HTTPException(status_code=502, detail="Vaani WebRTC response is missing token, room_name, or connection_url")
+    store.map_call(session.id, result["room_name"])
+    await store.publish(session.id, {"type": "call_status", "status": "connecting", "call_id": result["room_name"], "medium": "webrtc"})
+    return {
+        "token": result["token"],
+        "room_name": result["room_name"],
+        "connection_url": result["connection_url"],
+        "live_captions_url": result.get("live_captions_url"),
+    }
+
+
 @app.websocket("/vaani/byol/{call_id}")
 async def vaani_byol(websocket: WebSocket, call_id: str):
     await websocket.accept()
     await websocket.send_json({"interaction_type": "config", "content": "Server ready"})
     await websocket.send_json({"interaction_type": "greeting", "content": "Hello"})
-    # Vaani's dashboard Test Connection has no consultation created in the
-    # browser yet. Permit the protocol handshake, but do not expose or mutate
-    # any clinical state until a dispatch-created call ID is mapped.
-    if call_id not in store.call_to_consultation:
-        try:
-            while True:
-                message = await websocket.receive_json()
-                if message.get("response_type") == "ping_pong":
-                    await websocket.send_json({"response_type": "ping_pong"})
-        except WebSocketDisconnect:
-            return
-    session = store.by_call(call_id)
-    await store.publish(session.id, {"type": "call_status", "status": "active", "call_id": call_id})
+    session = store.by_call(call_id) if call_id in store.call_to_consultation else None
+    if session:
+        await store.publish(session.id, {"type": "call_status", "status": "active", "call_id": call_id})
     latest_response_id = -1
     pending_task: asyncio.Task | None = None
 
@@ -108,6 +134,18 @@ async def vaani_byol(websocket: WebSocket, call_id: str):
     try:
         while True:
             message = await websocket.receive_json()
+            if session is None:
+                custom_id = (message.get("req_body") or {}).get("x_agent_id")
+                if custom_id in store.sessions:
+                    store.map_call(custom_id, call_id)
+                    session = store.get(custom_id)
+                    await store.publish(session.id, {"type": "call_status", "status": "active", "call_id": call_id})
+                elif call_id in store.call_to_consultation:
+                    session = store.by_call(call_id)
+                    await store.publish(session.id, {"type": "call_status", "status": "active", "call_id": call_id})
+                else:
+                    if message.get("response_type") == "ping_pong": await websocket.send_json({"response_type": "ping_pong"})
+                    continue
             if message.get("interaction_type") != "response_required":
                 if message.get("response_type") == "ping_pong": await websocket.send_json({"response_type": "ping_pong"})
                 continue
@@ -123,7 +161,8 @@ async def vaani_byol(websocket: WebSocket, call_id: str):
             pending_task = asyncio.create_task(respond(response_id, learner_turns[-1]))
     except WebSocketDisconnect:
         if pending_task and not pending_task.done(): pending_task.cancel()
-        await store.publish(session.id, {"type": "call_status", "status": "disconnected", "call_id": call_id})
+        if session:
+            await store.publish(session.id, {"type": "call_status", "status": "disconnected", "call_id": call_id})
 
 
 @app.post("/vaani/webhook")

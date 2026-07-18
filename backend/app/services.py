@@ -1,5 +1,6 @@
 import re
 import json
+from collections import defaultdict
 
 import httpx
 from fastapi import HTTPException
@@ -12,6 +13,11 @@ from .models import ClinicalCase, ConsultationState, EvaluationReport, Transcrip
 class ConsultationStore:
     def __init__(self) -> None:
         self.sessions: dict[str, ConsultationState] = {}
+        self.call_to_consultation: dict[str, str] = {}
+        self.events: dict[str, list[dict]] = defaultdict(list)
+        self.subscribers: dict[str, set] = defaultdict(set)
+        self.processed_webhook_events: set[tuple[str, str]] = set()
+        self.processed_voice_responses: dict[str, set[int]] = defaultdict(set)
 
     def create(self, case_id: str) -> ConsultationState:
         get_case(case_id)
@@ -25,8 +31,47 @@ class ConsultationStore:
             raise HTTPException(status_code=404, detail="Consultation not found")
         return session
 
+    def map_call(self, consultation_id: str, call_id: str) -> None:
+        self.call_to_consultation[call_id] = consultation_id
+
+    def by_call(self, call_id: str) -> ConsultationState:
+        consultation_id = self.call_to_consultation.get(call_id)
+        if not consultation_id:
+            raise HTTPException(status_code=404, detail="Vaani call is not mapped to a consultation")
+        return self.get(consultation_id)
+
+    async def publish(self, consultation_id: str, event: dict) -> None:
+        self.events[consultation_id].append(event)
+        for websocket in list(self.subscribers[consultation_id]):
+            try:
+                await websocket.send_json(event)
+            except Exception:
+                self.subscribers[consultation_id].discard(websocket)
+
 
 store = ConsultationStore()
+
+
+async def extract_action(learner_text: str, case: ClinicalCase) -> dict:
+    """Return a conservative action; only known investigation IDs may mutate state."""
+    lower = learner_text.lower()
+    matches = [item.id for item in case.investigations if item.name.lower() in lower or item.id.lower() in lower]
+    if "order" in lower or "test" in lower or "investigation" in lower:
+        return {"action": "order_investigations", "investigation_ids": matches}
+    return {"action": "none", "investigation_ids": []}
+
+
+async def process_voice_turn(session: ConsultationState, learner_text: str) -> str:
+    case = get_case(session.case_id)
+    action = await extract_action(learner_text, case)
+    for investigation_id in action["investigation_ids"]:
+        investigation = order_investigation(session, investigation_id)
+        await store.publish(session.id, {"type": "investigation_ordered", "investigation_id": investigation.id, "name": investigation.name})
+        await store.publish(session.id, {"type": "investigation_result", "investigation_id": investigation.id, "name": investigation.name, "summary": investigation.summary, "interpretation": investigation.interpretation})
+    reply = await add_turn(session, learner_text)
+    await store.publish(session.id, {"type": "transcript_turn", "role": "learner", "text": learner_text})
+    await store.publish(session.id, {"type": "transcript_turn", "role": "patient", "text": reply})
+    return reply
 
 
 def _normalise(value: str) -> str:

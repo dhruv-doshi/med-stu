@@ -8,6 +8,10 @@ class Settings(BaseSettings):
     openrouter_model: str = "openai/gpt-4o-mini"
     vaani_api_key: str | None = None
     vaani_voice_id: str | None = None
+    vaani_agent_id: str | None = None
+    vaani_api_base_url: str = "https://api.vaanivoice.ai"
+    public_base_url: str | None = None
+    vaani_webhook_secret: str | None = None
 
 
 settings = Settings()

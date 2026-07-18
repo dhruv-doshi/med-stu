@@ -1,9 +1,12 @@
-from fastapi import FastAPI, HTTPException
+import asyncio
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from .case_store import get_case, load_cases, public_case
+from .config import settings
 from .models import CompleteRequest, CreateConsultationRequest, DifferentialsRequest, InvestigationRequest, TurnRequest
-from .services import add_evaluator_feedback, add_turn, evaluate, order_investigation, store
+from .services import add_evaluator_feedback, add_turn, evaluate, order_investigation, process_voice_turn, store
+import httpx
 
 app = FastAPI(title="AI Virtual Patient Simulator", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"], allow_methods=["*"], allow_headers=["*"])
@@ -28,6 +31,98 @@ def create_consultation(body: CreateConsultationRequest): return public_session(
 
 @app.get("/consultations/{consultation_id}")
 def get_consultation(consultation_id: str): return public_session(store.get(consultation_id))
+
+
+@app.websocket("/consultations/{consultation_id}/live")
+async def live_dashboard(websocket: WebSocket, consultation_id: str):
+    store.get(consultation_id)
+    await websocket.accept()
+    store.subscribers[consultation_id].add(websocket)
+    for event in store.events[consultation_id]:
+        await websocket.send_json(event)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        store.subscribers[consultation_id].discard(websocket)
+
+
+@app.post("/consultations/{consultation_id}/vaani/dispatch")
+async def dispatch_vaani_call(consultation_id: str, body: dict):
+    session = store.get(consultation_id)
+    if not settings.vaani_api_key or not settings.vaani_agent_id:
+        raise HTTPException(status_code=503, detail="VAANI_API_KEY and VAANI_AGENT_ID are required")
+    contact_number = body.get("contact_number")
+    if not contact_number:
+        raise HTTPException(status_code=422, detail="contact_number is required in E.164 format")
+    payload = {"agent_id": settings.vaani_agent_id, "contact_number": contact_number, "metadata": {"consultation_id": session.id, "case_id": session.case_id}}
+    async with httpx.AsyncClient(timeout=20) as client:
+        response = await client.post(f"{settings.vaani_api_base_url.rstrip('/')}/api/trigger-call/", headers={"X-API-Key": settings.vaani_api_key, "Content-Type": "application/json"}, json=payload)
+    if response.status_code >= 400:
+        raise HTTPException(status_code=502, detail=f"Vaani dispatch failed: {response.text[:300]}")
+    result = response.json()
+    call_id = result.get("call_id") or result.get("id") or result.get("room_name")
+    if not call_id:
+        raise HTTPException(status_code=502, detail="Vaani response did not include a call ID")
+    store.map_call(session.id, call_id)
+    await store.publish(session.id, {"type": "call_status", "status": "dispatching", "call_id": call_id})
+    return {"consultation_id": session.id, "call_id": call_id, "status": "dispatching"}
+
+
+@app.websocket("/vaani/byol/{call_id}")
+async def vaani_byol(websocket: WebSocket, call_id: str):
+    session = store.by_call(call_id)
+    await websocket.accept()
+    await websocket.send_json({"interaction_type": "config", "content": "Server ready"})
+    await websocket.send_json({"interaction_type": "greeting", "content": "Hello"})
+    await store.publish(session.id, {"type": "call_status", "status": "active", "call_id": call_id})
+    latest_response_id = -1
+    pending_task: asyncio.Task | None = None
+
+    async def respond(response_id: int, learner_text: str) -> None:
+        reply = await process_voice_turn(session, learner_text)
+        chunks = [reply[index:index + 120] for index in range(0, len(reply), 120)] or [""]
+        for index, chunk in enumerate(chunks):
+            await websocket.send_json({"response_type": "response", "response_id": response_id, "content": chunk, "content_complete": index == len(chunks) - 1})
+
+    try:
+        while True:
+            message = await websocket.receive_json()
+            if message.get("interaction_type") != "response_required":
+                if message.get("response_type") == "ping_pong": await websocket.send_json({"response_type": "ping_pong"})
+                continue
+            response_id = int(message.get("response_id", 0))
+            if response_id <= latest_response_id or response_id in store.processed_voice_responses[call_id]: continue
+            latest_response_id = response_id
+            store.processed_voice_responses[call_id].add(response_id)
+            transcript = message.get("transcript", [])
+            learner_turns = [item.get("content", "") for item in transcript if item.get("role") == "user"]
+            if not learner_turns: continue
+            if pending_task and not pending_task.done():
+                pending_task.cancel()
+            pending_task = asyncio.create_task(respond(response_id, learner_turns[-1]))
+    except WebSocketDisconnect:
+        if pending_task and not pending_task.done(): pending_task.cancel()
+        await store.publish(session.id, {"type": "call_status", "status": "disconnected", "call_id": call_id})
+
+
+@app.post("/vaani/webhook")
+async def vaani_webhook(payload: dict):
+    call_id = payload.get("call_id") or payload.get("room_name")
+    if not call_id or call_id not in store.call_to_consultation:
+        return {"status": "ignored"}
+    session = store.by_call(call_id)
+    event = payload.get("event")
+    event_key = (call_id, str(event))
+    if event_key in store.processed_webhook_events:
+        return {"status": "duplicate_ignored"}
+    store.processed_webhook_events.add(event_key)
+    await store.publish(session.id, {"type": "call_status", "status": event, "call_id": call_id})
+    if event == "call_postprocessing":
+        session.status = "completed"
+        report = await add_evaluator_feedback(session, evaluate(session))
+        await store.publish(session.id, {"type": "evaluation_ready", "report": report.model_dump()})
+    return {"status": "ok"}
 
 
 @app.post("/consultations/{consultation_id}/turns")

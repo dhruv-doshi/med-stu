@@ -73,10 +73,21 @@ async def dispatch_vaani_call(consultation_id: str, body: dict):
 
 @app.websocket("/vaani/byol/{call_id}")
 async def vaani_byol(websocket: WebSocket, call_id: str):
-    session = store.by_call(call_id)
     await websocket.accept()
     await websocket.send_json({"interaction_type": "config", "content": "Server ready"})
     await websocket.send_json({"interaction_type": "greeting", "content": "Hello"})
+    # Vaani's dashboard Test Connection has no consultation created in the
+    # browser yet. Permit the protocol handshake, but do not expose or mutate
+    # any clinical state until a dispatch-created call ID is mapped.
+    if call_id not in store.call_to_consultation:
+        try:
+            while True:
+                message = await websocket.receive_json()
+                if message.get("response_type") == "ping_pong":
+                    await websocket.send_json({"response_type": "ping_pong"})
+        except WebSocketDisconnect:
+            return
+    session = store.by_call(call_id)
     await store.publish(session.id, {"type": "call_status", "status": "active", "call_id": call_id})
     latest_response_id = -1
     pending_task: asyncio.Task | None = None

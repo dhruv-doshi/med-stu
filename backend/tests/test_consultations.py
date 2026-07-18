@@ -81,6 +81,12 @@ def test_byol_handshake_and_voice_turn_stream():
         assert "chest discomfort" in response["content"]
 
 
+def test_byol_dashboard_connection_handshake_needs_no_consultation():
+    with client.websocket_connect("/vaani/byol/dashboard-test") as websocket:
+        assert websocket.receive_json()["interaction_type"] == "config"
+        assert websocket.receive_json()["interaction_type"] == "greeting"
+
+
 def test_voice_order_action_publishes_report():
     consultation = client.post("/consultations", json={"case_id": "chest_pain_001"}).json()
     session = store.get(consultation["id"])

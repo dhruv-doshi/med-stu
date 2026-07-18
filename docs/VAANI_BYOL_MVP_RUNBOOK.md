@@ -82,6 +82,22 @@ ngrok http 8000
 
 Copy the generated `https://...` address into `PUBLIC_BASE_URL`; convert it to `wss://...` for the BYOL setting. Restart FastAPI after changing `.env`.
 
+### Free browser-live demo (no phone number, telephony, Vaani setup, or tunnel)
+
+For the fastest zero-cost demonstration, keep only the backend and frontend
+running, then open `http://localhost:3000` in Chrome.
+
+1. Select **Acute chest pain**.
+2. Select **Start browser live demo** and grant microphone permission.
+3. Speak a history question. The transcript and browser-spoken patient reply appear in the page.
+4. Speak while the patient reply is playing to cancel browser TTS, then ask the next question.
+5. Say “Please order an ECG.” The authored ECG report appears in the reports panel.
+6. Select **Complete consultation** to generate the evaluation without waiting for a Vaani webhook.
+
+Use headphones. The browser Web Speech APIs are free and preserve the
+case-safe backend flow, but they are not Vaani/WebRTC and therefore cannot
+guarantee telephony-quality barge-in on every browser. Chrome is recommended.
+
 ## 6. Fastest hosted MVP: one Railway or Render service
 
 The repository now includes a `Dockerfile` that builds the Next.js frontend as

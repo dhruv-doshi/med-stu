@@ -29,5 +29,6 @@
 
 - [X] Add educational disclaimers, reset control, loading states, and concise local setup instructions.
 - [X] Package a single-service Docker deployment that serves the static frontend from FastAPI and documents Railway/Render configuration.
+- [X] Add and verify a free browser-live STT/TTS demo mode with interrupt cancellation and case-safe spoken investigation orders.
 - [ ] Run the scripted chest-pain demo in a clean browser profile.
 - [ ] Record known limitations and move production requirements into the next feature specification.

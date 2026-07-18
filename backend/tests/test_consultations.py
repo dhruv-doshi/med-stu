@@ -96,6 +96,13 @@ def test_voice_order_action_publishes_report():
     assert any(event["type"] == "investigation_result" for event in store.events[session.id])
 
 
+def test_browser_live_turn_orders_case_safe_investigation():
+    consultation = client.post("/consultations", json={"case_id": "chest_pain_001"}).json()
+    response = client.post(f"/consultations/{consultation['id']}/turns", json={"text": "Please order an ECG", "input_mode": "browser_live"})
+    assert response.status_code == 200
+    assert "ecg" in response.json()["consultation"]["ordered_investigation_ids"]
+
+
 def test_webhook_postprocessing_is_idempotent():
     consultation = client.post("/consultations", json={"case_id": "chest_pain_001"}).json()
     store.map_call(consultation["id"], "call-hook")

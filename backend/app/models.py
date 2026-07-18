@@ -68,7 +68,7 @@ class CreateConsultationRequest(BaseModel):
 
 class TurnRequest(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
-    input_mode: Literal["text", "voice"] = "text"
+    input_mode: Literal["text", "voice", "browser_live"] = "text"
 
 
 class InvestigationRequest(BaseModel):

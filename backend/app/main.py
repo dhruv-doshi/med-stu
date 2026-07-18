@@ -148,7 +148,9 @@ async def vaani_webhook(payload: dict):
 @app.post("/consultations/{consultation_id}/turns")
 async def submit_turn(consultation_id: str, body: TurnRequest):
     session = store.get(consultation_id)
-    reply = await add_turn(session, body.text)
+    # Browser live voice uses the same validated action path as the Vaani
+    # adapter, so spoken orders appear in the live reports panel.
+    reply = await process_voice_turn(session, body.text) if body.input_mode == "browser_live" else await add_turn(session, body.text)
     return {"reply": reply, "consultation": public_session(session)}
 
 

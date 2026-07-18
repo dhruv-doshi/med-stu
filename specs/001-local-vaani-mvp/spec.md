@@ -17,6 +17,7 @@ A medical learner selects a fictional case, asks questions by text or voice, and
 1. **Given** an unstarted case, **When** the learner starts a consultation, **Then** the app creates an active consultation with no revealed hidden facts.
 2. **Given** an active consultation, **When** the learner asks an appropriate question, **Then** the patient replies only from case data and the state records the turn.
 3. **Given** an active phone consultation, **When** the learner speaks or interrupts the patient, **Then** Vaani owns live STT/TTS turn-taking and the browser receives transcript/status updates.
+4. **Given** an active browser-live consultation, **When** the learner speaks into a supported browser, **Then** the browser transcribes the learner turn, cancels any active browser TTS reply, and sends the final turn through the same case-safe session API.
 
 ### User Story 2 — Order and interpret fixed investigations (Priority: P1)
 
@@ -41,6 +42,12 @@ A learner can select chest pain, diabetes follow-up, migraine, upper respiratory
 A learner starts a Vaani phone consultation from the browser and watches the transcript, ordered investigations, and results update without refreshing the page.
 
 **Independent Test**: Start a chest-pain call, verbally order ECG, and observe the order/result appear in the browser before the call ends.
+
+### User Story 6 — Run a free browser-live demo (Priority: P1)
+
+A learner can conduct a microphone-and-speaker consultation directly in the browser without a phone number, telephony provisioning, or Vaani dispatch.
+
+**Independent Test**: Start a chest-pain consultation in Chrome, enable Browser live demo, ask a question aloud, interrupt the browser-spoken reply, verbally order ECG, and observe the transcript and predefined report update.
 
 ## Edge Cases
 
@@ -67,6 +74,8 @@ A learner starts a Vaani phone consultation from the browser and watches the tra
 - **FR-011**: A spoken investigation order MUST be extracted into structured action JSON, validated by deterministic case rules, and broadcast to the browser.
 - **FR-012**: The Vaani agent MUST use no platform-LLM fallback; only the constrained backend Patient Agent may formulate patient content.
 - **FR-013**: The system MUST prevent active consultations from exposing the hidden diagnosis or answer rubric to the browser.
+- **FR-014**: The system MUST offer a browser-live demo using browser speech-recognition and speech-synthesis APIs without exposing provider secrets or requiring a phone number.
+- **FR-015**: Browser-live final utterances MUST use the same constrained patient, action-validation, and live-event path as voice-provider turns.
 
 ## Success Criteria
 
@@ -80,5 +89,6 @@ A learner starts a Vaani phone consultation from the browser and watches the tra
 ## Assumptions
 
 - Vaani Voice (`docs.vaanivoice.ai`) is the default voice target, using a phone-call agent with BYOL enabled.
+- Browser live mode is a free local-demo fallback, not a Vaani/WebRTC implementation; browser support and interruption quality depend on the browser and use of headphones.
 - A structured-output LLM key will be supplied in the local environment; no model provider is hard-coded into clinical logic.
 - The local demo exposes the BYOL WebSocket through a temporary HTTPS/WSS tunnel; production deployment is deferred.

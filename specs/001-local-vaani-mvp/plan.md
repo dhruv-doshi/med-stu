@@ -20,6 +20,8 @@ Vaani phone agent ───────────────────┘
   STT / TTS / call media / native interruption
                                      │
                                 Vaani lifecycle webhooks
+
+Browser-live fallback ── browser STT/TTS ── same FastAPI turn/action API
 ```
 
 ## Technical decisions
@@ -31,6 +33,7 @@ Vaani phone agent ───────────────────┘
 - **Live dashboard**: A browser WebSocket receives `call_status`, `transcript_turn`, `investigation_ordered`, `investigation_result`, `consultation_completed`, and `evaluation_ready` events.
 - **Call end**: Vaani webhook identifies `call_ended` then `call_postprocessing`; FastAPI stores final transcript, runs deterministic scoring plus Evaluator Agent feedback, and emits `evaluation_ready`.
 - **Barge-in**: Vaani is the audio/turn-taking authority. The backend never starts a second response after a newer Vaani `response_required` turn; it cancels any outstanding generation task for that call before handling the new response ID.
+- **Free browser demo**: Chrome-compatible Web Speech APIs provide continuous local microphone capture and browser TTS. A recognised learner utterance cancels active browser TTS and uses `input_mode: browser_live`, which reuses the safe action/extraction path. This is explicitly a local fallback rather than model-native audio handling.
 
 ## Security and failure policy
 

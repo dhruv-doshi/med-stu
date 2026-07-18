@@ -8,5 +8,5 @@
 - [x] Local fallback is required.
 - [x] API, data model, and task sequence are defined.
 - [x] Scale/deployment work is explicitly deferred.
-- [ ] Confirm Vaani Labs account/API credentials before implementing Stage 3.
-- [ ] Choose the structured-output LLM provider and provide its local API key before implementing generated patient wording.
+- [x] Confirm Vaani Labs account/API credentials before implementing Stage 3.
+- [x] Choose the structured-output LLM provider and provide its local API key before implementing generated patient wording.

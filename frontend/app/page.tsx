@@ -2,8 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 
-const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
-const WS_API = API.replace(/^http/, "ws");
+const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 type Case = { id: string; title: string; specialty: string; difficulty: string; learning_objectives: string[]; presenting_complaint: string };
 type Turn = { role: "learner" | "patient"; text: string };
 type Investigation = { id: string; name: string };
@@ -18,7 +17,7 @@ export default function Home() {
   const socket = useRef<WebSocket | null>(null);
   useEffect(() => { fetch(`${API}/cases`).then(r => r.json()).then(setCases).catch(() => setError("Cannot reach the API. Start FastAPI on port 8000.")); return () => socket.current?.close(); }, []);
   function connectLive(id: string) {
-    socket.current?.close(); const ws = new WebSocket(`${WS_API}/consultations/${id}/live`); socket.current = ws;
+    socket.current?.close(); const wsBase = API ? API.replace(/^http/, "ws") : `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}`; const ws = new WebSocket(`${wsBase}/consultations/${id}/live`); socket.current = ws;
     ws.onmessage = event => { const data = JSON.parse(event.data); if (data.type === "call_status") setCallStatus(data.status); if (data.type === "transcript_turn") setTurns(prev => [...prev, { role: data.role === "learner" ? "learner" : "patient", text: data.text }]); if (data.type === "investigation_ordered") setOrdered(prev => prev.includes(data.name) ? prev : [...prev, data.name]); if (data.type === "investigation_result") setOrdered(prev => prev.map(x => x === data.name ? `${data.name}: ${data.summary} ${data.interpretation}` : x)); if (data.type === "evaluation_ready") setReport(data.report); };
     ws.onerror = () => setError("Live dashboard connection failed; text mode remains available.");
   }

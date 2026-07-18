@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     vaani_api_base_url: str = "https://api.vaanivoice.ai"
     public_base_url: str | None = None
     vaani_webhook_secret: str | None = None
+    cors_origins: str = "http://localhost:3000"
 
 
 settings = Settings()

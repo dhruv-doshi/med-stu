@@ -18,7 +18,7 @@ This guide configures the MVP as a real phone-call consultation. Vaani handles l
 - OpenRouter API key and a model that supports JSON output.
 - A phone capable of receiving the Vaani test call.
 - Node 22+, Python 3.11+, `uv`, and npm installed locally.
-- A public HTTPS/WSS tunnel for local testing, such as ngrok or Cloudflare Tunnel. Vaani cannot reach `localhost` directly.
+- For the deployed path below, a Railway or Render account. For an entirely local test, a public HTTPS/WSS tunnel is still required because Vaani cannot reach `localhost` directly.
 
 ## 3. Configure Vaani dashboard
 
@@ -57,6 +57,7 @@ VAANI_API_KEY=...
 VAANI_AGENT_ID=<agent UUID from dashboard>
 VAANI_WEBHOOK_SECRET=<optional signing secret>
 PUBLIC_BASE_URL=https://<your-public-domain>
+CORS_ORIGINS=http://localhost:3000
 ```
 
 Never commit `.env`, paste secrets into a chat, or add Vaani/OpenRouter keys to `NEXT_PUBLIC_*` variables.
@@ -81,7 +82,59 @@ ngrok http 8000
 
 Copy the generated `https://...` address into `PUBLIC_BASE_URL`; convert it to `wss://...` for the BYOL setting. Restart FastAPI after changing `.env`.
 
-## 6. BYOL protocol contract
+## 6. Fastest hosted MVP: one Railway or Render service
+
+The repository now includes a `Dockerfile` that builds the Next.js frontend as
+static files and serves it from FastAPI. This means the browser, REST API,
+browser WebSocket, Vaani BYOL WebSocket, and Vaani webhook all use one public
+domain. Normal browser CORS is not needed in this layout.
+
+### Railway deployment
+
+1. Push the current repository to GitHub.
+2. In Railway, create **New Project → Deploy from GitHub Repo** and select this repository.
+3. Railway detects the root `Dockerfile`; leave the root directory as the repository root.
+4. In the service's **Variables** panel, add these values:
+
+```dotenv
+OPENROUTER_API_KEY=...
+OPENROUTER_MODEL=openai/gpt-4o-mini
+VAANI_API_KEY=...
+VAANI_AGENT_ID=<Vaani agent UUID>
+VAANI_API_BASE_URL=https://api.vaanivoice.ai
+PUBLIC_BASE_URL=https://<railway-public-domain>
+CORS_ORIGINS=https://<railway-public-domain>
+```
+
+5. In **Settings → Networking**, generate a public domain. Copy it, then set
+   `PUBLIC_BASE_URL` to that exact `https://...` value and redeploy once.
+6. Open `https://<railway-public-domain>/health`. It must return
+   `{"status":"ok"}`.
+7. Open the same domain without `/health`. The virtual-patient browser UI must load.
+
+### Render deployment
+
+1. Create a **Web Service** from the GitHub repository.
+2. Choose **Docker** as the runtime and leave the root directory as the repository root.
+3. Add exactly the environment variables shown in the Railway section, substituting the Render public domain for `PUBLIC_BASE_URL` and `CORS_ORIGINS`.
+4. Deploy, then verify `/health` and the root browser UI.
+
+### Vaani settings for either host
+
+After the public domain is working, configure Vaani with the exact same host:
+
+```text
+BYOL URL:  wss://<public-domain>/vaani/byol
+Webhook:   https://<public-domain>/vaani/webhook
+Fallback:  No fallback
+```
+
+Do not set `NEXT_PUBLIC_API_BASE_URL` for this single-service Docker deployment.
+The frontend is built to call its own origin, so it automatically uses the same
+HTTPS/WSS domain as FastAPI. Never add the Vaani or OpenRouter keys as
+`NEXT_PUBLIC_*` variables.
+
+## 7. BYOL protocol contract
 
 Vaani opens one WebSocket per call and appends its call ID to the configured BYOL path. On connection, FastAPI sends these frames in order:
 
@@ -99,7 +152,7 @@ For each learner turn, Vaani sends `response_required` with a `response_id` and 
 
 The backend maps Vaani’s call ID to the active consultation created by the browser. It never trusts a caller-provided case ID on the BYOL connection.
 
-## 7. Live browser events
+## 8. Live browser events
 
 The browser connects to `/consultations/{consultation_id}/live`. It renders events in arrival order:
 
@@ -111,7 +164,7 @@ The browser connects to `/consultations/{consultation_id}/live`. It renders even
 
 When the learner says “Order ECG and troponin”, the action extractor returns allowed investigation IDs. The deterministic case engine validates them, stores the order, and emits browser events. Do not generate values with an LLM.
 
-## 8. Interruption and continuous conversation
+## 9. Interruption and continuous conversation
 
 Vaani is the audio authority. Its voice-agent runtime detects the learner speaking while the patient is talking and controls the active TTS/STT turn. The backend must treat Vaani’s newest `response_required` message as authoritative:
 
@@ -122,17 +175,18 @@ Vaani is the audio authority. Its voice-agent runtime detects the learner speaki
 
 Test this explicitly: while the patient is speaking, interrupt with “Has it ever happened before?” Confirm patient audio stops, no old chunks continue, and the browser shows the new learner turn.
 
-## 9. Demo script
+## 10. First hosted demo script
 
-1. Select Acute chest pain and dispatch a call to the learner phone.
-2. Ask about onset, constant nature, radiation, sweating, smoking, and breathlessness.
-3. Interrupt the patient once to confirm natural barge-in.
-4. Say: “Order ECG and troponin.” Watch both report cards appear in the browser.
-5. State acute coronary syndrome and a management plan.
-6. End the call.
-7. Wait for Vaani `call_postprocessing`; confirm the evaluation report appears with transcript evidence.
+1. Open `https://<public-domain>` and select Acute chest pain.
+2. Enter the learner's E.164 phone number and dispatch the Vaani call.
+3. Ask about onset, constant nature, radiation, sweating, smoking, and breathlessness.
+4. Interrupt the patient once to confirm natural barge-in.
+5. Say: “Order ECG and troponin.” Watch both report cards appear in the browser.
+6. State acute coronary syndrome and a management plan.
+7. End the call.
+8. Wait for Vaani `call_postprocessing`; confirm the evaluation report appears with transcript evidence.
 
-## 10. Troubleshooting
+## 11. Troubleshooting
 
 | Symptom | Check |
 |---|---|
@@ -142,8 +196,10 @@ Test this explicitly: while the patient is speaking, interrupt with “Has it ev
 | No investigation appears | Inspect action-extractor JSON and case investigation IDs; never bypass State Engine validation. |
 | Duplicate evaluation | Make webhook handling idempotent by call ID and event type. |
 | Interrupted reply continues | Cancel the prior generation task and stop emitting chunks when the next response ID arrives. |
+| Browser UI returns a 404 | Confirm the Docker build completed and the service is deploying from the repository root, not `frontend/` or `backend/`. |
+| API works but Vaani cannot connect | Use the generated public domain, verify `wss://` rather than `https://` for BYOL, and redeploy after updating `PUBLIC_BASE_URL`. |
 
-## 11. MVP completion checklist
+## 12. MVP completion checklist
 
 - [ ] Vaani agent created, BYOL enabled, no fallback selected.
 - [ ] Telephony number assigned and webhook registered.

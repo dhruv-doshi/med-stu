@@ -1,6 +1,8 @@
 import asyncio
+from pathlib import Path
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from .case_store import get_case, load_cases, public_case
 from .config import settings
@@ -9,7 +11,7 @@ from .services import add_evaluator_feedback, add_turn, evaluate, order_investig
 import httpx
 
 app = FastAPI(title="AI Virtual Patient Simulator", version="0.1.0")
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=[origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()], allow_methods=["*"], allow_headers=["*"])
 
 
 def public_session(session):
@@ -159,3 +161,10 @@ async def get_evaluation(consultation_id: str):
     session = store.get(consultation_id)
     if session.status != "completed": raise HTTPException(status_code=422, detail="Complete the consultation first")
     return await add_evaluator_feedback(session, evaluate(session))
+
+
+# Docker copies the static Next.js export here. All API/WebSocket routes above
+# take priority, so one HTTPS/WSS origin can serve the full MVP.
+frontend_out = Path(__file__).resolve().parents[2] / "frontend" / "out"
+if frontend_out.is_dir():
+    app.mount("/", StaticFiles(directory=frontend_out, html=True), name="frontend")

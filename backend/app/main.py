@@ -57,13 +57,20 @@ async def dispatch_vaani_call(consultation_id: str, body: dict):
     contact_number = body.get("contact_number")
     if not contact_number:
         raise HTTPException(status_code=422, detail="contact_number is required in E.164 format")
-    payload = {"agent_id": settings.vaani_agent_id, "contact_number": contact_number, "metadata": {"consultation_id": session.id, "case_id": session.case_id}}
+    payload = {
+        "agent_id": settings.vaani_agent_id,
+        "contact_number": contact_number,
+        "name": "Medical simulation learner",
+        "voice": "",
+        "metadata": {"consultation_id": session.id, "case_id": session.case_id},
+    }
     async with httpx.AsyncClient(timeout=20) as client:
         response = await client.post(f"{settings.vaani_api_base_url.rstrip('/')}/api/trigger-call/", headers={"X-API-Key": settings.vaani_api_key, "Content-Type": "application/json"}, json=payload)
     if response.status_code >= 400:
         raise HTTPException(status_code=502, detail=f"Vaani dispatch failed: {response.text[:300]}")
     result = response.json()
-    call_id = result.get("call_id") or result.get("id") or result.get("room_name")
+    output = result.get("output") if isinstance(result.get("output"), dict) else {}
+    call_id = result.get("call_id") or result.get("id") or result.get("room_name") or output.get("call_id") or output.get("room_name")
     if not call_id:
         raise HTTPException(status_code=502, detail="Vaani response did not include a call ID")
     store.map_call(session.id, call_id)

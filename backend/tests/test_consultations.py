@@ -13,6 +13,7 @@ def test_case_list_hides_diagnosis():
     response = client.get("/cases")
     assert response.status_code == 200
     assert "expected_diagnosis" not in response.text
+    assert len(response.json()) == 5
 
 
 def test_chest_pain_golden_path():

@@ -16,12 +16,14 @@
 - [X] Author diabetes, migraine, URI, and abdominal-pain cases using the same schema.
 - [ ] Add smoke fixtures for every case and golden chest-pain evaluation regression.
 
-## Stage 3 — Vaani voice
+## Stage 3 — Vaani BYOL phone-call runtime
 
-- [ ] Define `VoiceProvider`, mock implementation, environment validation, and provider-error contract.
-- [ ] Implement Vaani Labs browser-session creation on the backend.
-- [ ] Add microphone controls, transcript synchronization, and patient audio playback in the frontend.
-- [ ] Test text fallback, denied microphone permission, unavailable Vaani credentials, and a successful speak/hear turn.
+- [ ] Add Vaani configuration, call dispatch, agent/call mapping, and a browser live-event WebSocket.
+- [ ] Implement the BYOL handshake, transcript-to-state turn handling, response chunk streaming, and abandoned-turn cancellation.
+- [ ] Add structured spoken-action extraction for investigation orders and broadcast live browser report events.
+- [ ] Add Vaani lifecycle/post-processing webhook handling, evaluation trigger, and webhook/idempotency tests.
+- [ ] Replace browser voice fallback as the primary flow with call launch, call state, live transcript, live reports, and post-call evaluation.
+- [ ] Test Vaani no-fallback behavior, BYOL reconnect, live ECG order, native interruption, and browser text recovery.
 
 ## Stage 4 — Demo hardening
 

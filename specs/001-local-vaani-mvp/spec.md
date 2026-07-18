@@ -2,7 +2,7 @@
 
 **Feature Branch**: `001-local-vaani-mvp`  
 **Created**: 2026-07-18  
-**Status**: Ready for task implementation
+**Status**: Revised for Vaani BYOL implementation
 
 ## User Scenarios & Testing
 
@@ -16,7 +16,7 @@ A medical learner selects a fictional case, asks questions by text or voice, and
 
 1. **Given** an unstarted case, **When** the learner starts a consultation, **Then** the app creates an active consultation with no revealed hidden facts.
 2. **Given** an active consultation, **When** the learner asks an appropriate question, **Then** the patient replies only from case data and the state records the turn.
-3. **Given** an active consultation, **When** the learner uses a voice-capable browser, **Then** spoken input and an audible patient response have visible transcript text.
+3. **Given** an active phone consultation, **When** the learner speaks or interrupts the patient, **Then** Vaani owns live STT/TTS turn-taking and the browser receives transcript/status updates.
 
 ### User Story 2 — Order and interpret fixed investigations (Priority: P1)
 
@@ -36,9 +36,15 @@ A learner can select chest pain, diabetes follow-up, migraine, upper respiratory
 
 **Independent Test**: Start and complete a smoke consultation for every case using its own authored investigation results and rubric.
 
+### User Story 5 — Monitor a live voice call (Priority: P1)
+
+A learner starts a Vaani phone consultation from the browser and watches the transcript, ordered investigations, and results update without refreshing the page.
+
+**Independent Test**: Start a chest-pain call, verbally order ECG, and observe the order/result appear in the browser before the call ends.
+
 ## Edge Cases
 
-- Vaani access, microphone permission, or network access fails: retain the text consultation and show an actionable non-blocking message.
+- Vaani BYOL WebSocket fails: use no platform-LLM fallback, mark the call degraded, and preserve browser text mode for recovery.
 - The learner asks an unclear or unsupported question: the patient asks for clarification and does not invent facts.
 - The learner repeats a question: the patient may restate the already revealed fact consistently.
 - An unknown investigation is requested: reject it without altering consultation state.
@@ -55,9 +61,12 @@ A learner can select chest pain, diabetes follow-up, migraine, upper respiratory
 - **FR-005**: The system MUST return only predefined investigation results.
 - **FR-006**: The system MUST calculate core scores deterministically and return structured evaluation JSON.
 - **FR-007**: The system MUST use an LLM only through a constrained patient-response/feedback interface supplied with case-safe context.
-- **FR-008**: The system MUST expose a `VoiceProvider` adapter with a Vaani implementation and a no-credential mock/text fallback.
-- **FR-009**: The system MUST display the transcript for both typed and voice interactions.
-- **FR-010**: The system MUST prevent active consultations from exposing the hidden diagnosis or answer rubric to the browser.
+- **FR-008**: The system MUST dispatch a Vaani Voice agent call using a configured `agent_id` and map the returned call ID to the consultation.
+- **FR-009**: The system MUST implement Vaani BYOL’s persistent WebSocket protocol and stream Patient Agent text chunks back to Vaani.
+- **FR-010**: The browser MUST subscribe to a consultation-specific WebSocket for transcript, call-status, investigation, and evaluation events.
+- **FR-011**: A spoken investigation order MUST be extracted into structured action JSON, validated by deterministic case rules, and broadcast to the browser.
+- **FR-012**: The Vaani agent MUST use no platform-LLM fallback; only the constrained backend Patient Agent may formulate patient content.
+- **FR-013**: The system MUST prevent active consultations from exposing the hidden diagnosis or answer rubric to the browser.
 
 ## Success Criteria
 
@@ -65,10 +74,11 @@ A learner can select chest pain, diabetes follow-up, migraine, upper respiratory
 - **SC-002**: The scripted chest-pain demo completes in under two minutes without manual data editing.
 - **SC-003**: Automated tests pass for all clinical-state transitions and the chest-pain golden evaluation.
 - **SC-004**: Each of the five cases can be started, questioned, investigated, and completed in a smoke test.
-- **SC-005**: A Vaani failure never prevents the learner from finishing the text demo.
+- **SC-005**: A spoken ECG order appears in the live browser dashboard before the call ends.
+- **SC-006**: A test call can be interrupted naturally by the learner without the backend emitting a second patient response for the abandoned turn.
 
 ## Assumptions
 
-- Vaani Labs is the default voice target, using its browser-capable session API after account credentials are supplied.
+- Vaani Voice (`docs.vaanivoice.ai`) is the default voice target, using a phone-call agent with BYOL enabled.
 - A structured-output LLM key will be supplied in the local environment; no model provider is hard-coded into clinical logic.
-- The two-hour build target excludes user accounts, durable storage, Docker, telephony, and online deployment.
+- The local demo exposes the BYOL WebSocket through a temporary HTTPS/WSS tunnel; production deployment is deferred.
